@@ -11,78 +11,12 @@ on:
         description: 'Release version'
         required: true
         default: '0.0'
-      devel_name:
-        description: 'Developer Name'
-        required: true
-        default: 'Avocado Developer'
-      devel_mail:
-        description: 'Developer mail'
-        required: true
-        default: 'avocado@redhat.com'
-      rtd_project:
-        description: 'readthedocs project name'
-        required: true
-        default: 'avocado-framework'
 
 jobs:
-
-  release:
-    name: Release pipeline
-    runs-on: ubuntu-latest
-    container:
-      image: fedora:34
-    env:
-      VERSION: ${{ github.event.inputs.version }}
-      DEVEL_NAME: ${{ github.event.inputs.devel_name }}
-      DEVEL_MAIL: ${{ github.event.inputs.devel_mail }}
-      PYTHON: /usr/bin/python3
-      TOKEN_RTD: ${{ secrets.RTD_TOKEN }}
-      URL: "https://readthedocs.org/api/v3/projects/${{ github.event.inputs.rtd_project }}"
-
-    steps:
-      - name: install required packages
-        run:  dnf -y install rpmdevtools git python3-pip make
-      - uses: actions/checkout@v2
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Update VERSION files and python-avocado.spec
-        run: |
-          make -f Makefile.gh propagate-version
-          make -f Makefile.gh release-update-spec
-      - name: Commit files and tag
-        run: |
-          git config --local user.email "${{ github.event.inputs.devel_mail }}"
-          git config --local user.name "${{ github.event.inputs.devel_name }}"
-          make -f Makefile.gh release-commit-tag
-      - name: Push changes to github
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.RELEASE_TOKEN }}
-          branch: ${{ github.ref }}
-      - name: Build wheel
-        run: make -f Makefile.gh build-wheel
-      - name: Save wheel as artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: wheel
-          path: ${{github.workspace}}/PYPI_UPLOAD/
-          retention-days: 3
-      - name: Build documentation readthedocs
-        run: |
-          make -f Makefile.gh build-update-readthedocs
-      - run: echo "In a few minutes the release documentation will be available in https://${{ github.event.inputs.rtd_project }}.readthedocs.io/en/${{ github.event.inputs.version }}/"
-      - name: Upload to pypi
-        continue-on-error: true
-        env:
-          TWINE_USERNAME: ${{ secrets.PYPI_USER }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWD }}
-        run: make -f Makefile.gh update-pypi
 
   build-and-publish-eggs:
     name: Build eggs and publish them
     runs-on: ubuntu-latest
-    needs: release
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8, 3.9, 3.10.0]
